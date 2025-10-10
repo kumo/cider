@@ -15,6 +15,14 @@ const Subnet = struct {
         };
     }
 
+    pub fn firstIpAddress(self: Subnet) std.net.Ip4Address {
+        return u32ToIp(self.network + 1);
+    }
+
+    pub fn lastIpAddress(self: Subnet) std.net.Ip4Address {
+        return u32ToIp(self.network + self.ipCount());
+    }
+
     pub fn ipCount(self: Subnet) u32 {
         return calculateTotalIps(self.prefix_len) - 2;
     }
@@ -65,6 +73,44 @@ test "init masks host bits to get network address" {
     try std.testing.expectEqual(@as(u5, 28), subnet.prefix_len);
 }
 
+test "firstIpAddress returns IP after network address" {
+    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28);
+    const expected = std.net.Ip4Address.init(.{ 192, 168, 1, 1 }, 0);
+
+    try std.testing.expectEqual(expected, subnet.firstIpAddress());
+}
+
+test "lastIpAddress returns 'ipCount' IPs after network address" {
+    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28);
+    const expected = std.net.Ip4Address.init(.{ 192, 168, 1, 14 }, 0);
+
+    try std.testing.expectEqual(14, subnet.ipCount());
+    try std.testing.expectEqual(expected, subnet.lastIpAddress());
+}
+
+test "ipCount calculates based on prefix " {
+    // 28
+    {
+        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 28);
+
+        try std.testing.expectEqual(14, subnet.ipCount());
+    }
+
+    // 29
+    {
+        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 29);
+
+        try std.testing.expectEqual(6, subnet.ipCount());
+    }
+
+    // 25
+    {
+        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 25);
+
+        try std.testing.expectEqual(126, subnet.ipCount());
+    }
+}
+
 test "netmask calculates based on prefix" {
     // 28
     {
@@ -88,28 +134,5 @@ test "netmask calculates based on prefix" {
         const expected = std.net.Ip4Address.init(.{ 255, 255, 255, 128 }, 0);
 
         try std.testing.expectEqual(expected, subnet.netmask());
-    }
-}
-
-test "ipCount calculates based on prefix " {
-    // 28
-    {
-        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 28);
-
-        try std.testing.expectEqual(14, subnet.ipCount());
-    }
-
-    // 29
-    {
-        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 29);
-
-        try std.testing.expectEqual(6, subnet.ipCount());
-    }
-
-    // 25
-    {
-        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 25);
-
-        try std.testing.expectEqual(126, subnet.ipCount());
     }
 }
