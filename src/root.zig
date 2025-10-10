@@ -40,6 +40,7 @@ const Subnet = struct {
     }
 };
 
+// Test helper to create IP address as u32
 fn testIp(octets: [4]u8) u32 {
     return (@as(u32, octets[0]) << 24) |
         (@as(u32, octets[1]) << 16) |
@@ -48,16 +49,35 @@ fn testIp(octets: [4]u8) u32 {
 }
 
 test "init masks host bits to get network address" {
-    const expected = std.net.Ip4Address.init(.{ 192, 168, 1, 0 }, 0);
     const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 28);
+    const expected = std.net.Ip4Address.init(.{ 192, 168, 1, 0 }, 0);
 
     try std.testing.expectEqual(expected, subnet.networkAddress());
     try std.testing.expectEqual(@as(u5, 28), subnet.prefix_len);
 }
 
-test "netmask returns IP address" {
-    const expected = std.net.Ip4Address.init(.{ 255, 255, 255, 240 }, 0);
-    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 28);
+test "netmask calculates based on prefix" {
+    // 28
+    {
+        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 28);
+        const expected = std.net.Ip4Address.init(.{ 255, 255, 255, 240 }, 0);
 
-    try std.testing.expectEqual(expected, subnet.netmask());
+        try std.testing.expectEqual(expected, subnet.netmask());
+    }
+
+    // 29
+    {
+        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 29);
+        const expected = std.net.Ip4Address.init(.{ 255, 255, 255, 248 }, 0);
+
+        try std.testing.expectEqual(expected, subnet.netmask());
+    }
+
+    // 25
+    {
+        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 25);
+        const expected = std.net.Ip4Address.init(.{ 255, 255, 255, 128 }, 0);
+
+        try std.testing.expectEqual(expected, subnet.netmask());
+    }
 }
