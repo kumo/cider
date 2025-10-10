@@ -15,6 +15,10 @@ const Subnet = struct {
         };
     }
 
+    pub fn ipCount(self: Subnet) u32 {
+        return calculateTotalIps(self.prefix_len) - 2;
+    }
+
     pub fn netmask(self: Subnet) std.net.Ip4Address {
         return u32ToIp(calculateNetmask(self.prefix_len));
     }
@@ -28,6 +32,11 @@ const Subnet = struct {
     fn calculateNetmask(prefix_len: u5) u32 {
         const shift: u5 = @intCast(32 - @as(u6, prefix_len));
         return ~@as(u32, 0) << shift;
+    }
+
+    fn calculateTotalIps(prefix_len: u5) u32 {
+        const shift: u5 = @intCast(32 - @as(u6, prefix_len));
+        return @as(u32, 1) << shift;
     }
 
     fn u32ToIp(addr: u32) std.net.Ip4Address {
@@ -79,5 +88,28 @@ test "netmask calculates based on prefix" {
         const expected = std.net.Ip4Address.init(.{ 255, 255, 255, 128 }, 0);
 
         try std.testing.expectEqual(expected, subnet.netmask());
+    }
+}
+
+test "ipCount calculates based on prefix " {
+    // 28
+    {
+        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 28);
+
+        try std.testing.expectEqual(14, subnet.ipCount());
+    }
+
+    // 29
+    {
+        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 29);
+
+        try std.testing.expectEqual(6, subnet.ipCount());
+    }
+
+    // 25
+    {
+        const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 25);
+
+        try std.testing.expectEqual(126, subnet.ipCount());
     }
 }
