@@ -1,23 +1,31 @@
 //! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
 
-pub fn bufferedPrint() !void {
-    // Stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    var stdout_buffer: [1024]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-    const stdout = &stdout_writer.interface;
+const Subnet = struct {
+    network: u32,
+    prefix_len: u5,
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+    pub fn init(ip: u32, prefix_len: u5) Subnet {
+        const shift = 32 - @as(u6, prefix_len);
+        const mask = ~@as(u32, 0) << @intCast(shift);
 
-    try stdout.flush(); // Don't forget to flush!
+        return .{
+            .network = ip & mask,
+            .prefix_len = prefix_len,
+        };
+    }
+};
+
+fn testIp(octets: [4]u8) u32 {
+    return (@as(u32, octets[0]) << 24) |
+        (@as(u32, octets[1]) << 16) |
+        (@as(u32, octets[2]) << 8) |
+        @as(u32, octets[3]);
 }
 
-pub fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
+test "init masks host bits to get network address" {
+    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 28);
 
-test "basic add functionality" {
-    try std.testing.expect(add(3, 7) == 10);
+    try std.testing.expectEqual(testIp(.{ 192, 168, 1, 0 }), subnet.network);
+    try std.testing.expectEqual(@as(u5, 28), subnet.prefix_len);
 }
