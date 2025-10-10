@@ -15,6 +15,21 @@ const Subnet = struct {
         };
     }
 
+    pub fn parse(cidr: []const u8) !Subnet {
+        var iter = std.mem.splitScalar(u8, cidr, '/');
+
+        const ip_str = iter.next() orelse return error.InvalidCidr;
+        const prefix_str = iter.next() orelse return error.InvalidCidr;
+
+        // Ensure there are no extra slashes
+        if (iter.next() != null) return error.InvalidCidr;
+
+        const ip = std.net.Ip4Address.parse(ip_str, 0) catch return error.InvalidCidr;
+        const prefix_len = std.fmt.parseInt(u5, prefix_str, 10) catch return error.InvalidCidr;
+
+        return Subnet.init(ip.sa.addr, prefix_len);
+    }
+
     pub fn firstIpAddress(self: Subnet) std.net.Ip4Address {
         return u32ToIp(self.network + 1);
     }
@@ -71,6 +86,35 @@ test "init masks host bits to get network address" {
 
     try std.testing.expectEqual(expected, subnet.networkAddress());
     try std.testing.expectEqual(@as(u5, 28), subnet.prefix_len);
+}
+
+test "parse returns errors for invalid CIDRs" {
+    // Missing slash
+    try std.testing.expectError(error.InvalidCidr, Subnet.parse("192.168.1.0"));
+
+    // Invalid prefix
+    try std.testing.expectError(error.InvalidCidr, Subnet.parse("192.168.1.0/abc"));
+
+    // Multiple prefix
+    try std.testing.expectError(error.InvalidCidr, Subnet.parse("192.168.1.0/1/2/3"));
+
+    // Empty prefix
+    try std.testing.expectError(error.InvalidCidr, Subnet.parse("192.168.1.0/"));
+
+    // Overflowing prefix
+    try std.testing.expectError(error.InvalidCidr, Subnet.parse("192.168.1.0/9999"));
+
+    // Invalid IP
+    try std.testing.expectError(error.InvalidCidr, Subnet.parse("192.168.1/28"));
+
+    // No data
+    try std.testing.expectError(error.InvalidCidr, Subnet.parse(""));
+
+    // Text
+    try std.testing.expectError(error.InvalidCidr, Subnet.parse("localhost"));
+
+    // Emoji
+    try std.testing.expectError(error.InvalidCidr, Subnet.parse("🏪📦⚠️"));
 }
 
 test "firstIpAddress returns IP after network address" {
