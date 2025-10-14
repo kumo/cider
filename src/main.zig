@@ -30,10 +30,9 @@ pub fn main() !void {
     var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
     const stdout = &stdout_writer.interface;
 
-    if (config.calculate_next) {
-        try stdout.print("{f}", .{subnet.next()});
-    } else {
-        try stdout.print("{f}", .{subnet});
+    switch (config.command) {
+        .info => try stdout.print("{f}", .{subnet}),
+        .next => try stdout.print("{f}", .{subnet.next()}),
     }
 
     try stdout.flush();

@@ -1,8 +1,13 @@
 const std = @import("std");
 
+pub const Command = enum {
+    info,
+    next,
+};
+
 pub const Config = struct {
     cidr: []const u8,
-    calculate_next: bool = false,
+    command: Command = .info,
 
     pub fn fromArgs(allocator: std.mem.Allocator, args: []const []const u8) !Config {
         if (args.len < 2) {
@@ -12,14 +17,14 @@ pub const Config = struct {
         if (args.len == 2) {
             return Config{
                 .cidr = try allocator.dupe(u8, args[1]),
-                .calculate_next = false,
+                .command = .info,
             };
         }
 
         if (args.len == 3 and std.mem.eql(u8, args[1], "next")) {
             return Config{
                 .cidr = try allocator.dupe(u8, args[2]),
-                .calculate_next = true,
+                .command = .next,
             };
         }
 
@@ -47,7 +52,7 @@ test "Parse valid CIDR" {
     const config = try Config.fromArgs(allocator, &args);
 
     try std.testing.expectEqualStrings("192.168.1.0/24", config.cidr);
-    try std.testing.expectEqual(false, config.calculate_next);
+    try std.testing.expectEqual(.info, config.command);
 }
 
 test "Parse multiple args" {
@@ -70,5 +75,5 @@ test "Parse with 'next' command" {
     const config = try Config.fromArgs(allocator, &args);
 
     try std.testing.expectEqualStrings("192.168.1.0/24", config.cidr);
-    try std.testing.expectEqual(true, config.calculate_next);
+    try std.testing.expectEqual(.next, config.command);
 }
