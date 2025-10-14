@@ -104,11 +104,24 @@ fn testIp(octets: [4]u8) u32 {
         @as(u32, octets[3]);
 }
 
+fn expectEqualIp(expected: u32, actual: u32) !void {
+    if (expected == actual) return;
+
+    std.debug.print("\n" ++
+        "Expected IP: {f}\n" ++
+        "Actual IP:   {f}\n", .{
+        formatIp(expected),
+        formatIp(actual),
+    });
+
+    return error.TestExpectedEqual;
+}
+
 test "init masks host bits to get network address" {
     const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 28);
     const expected = testIp(.{ 192, 168, 1, 0 });
 
-    try std.testing.expectEqual(expected, subnet.network);
+    try expectEqualIp(expected, subnet.network);
     try std.testing.expectEqual(@as(u5, 28), subnet.prefix_len);
 }
 
@@ -118,20 +131,20 @@ test "parse creates valid subnet" {
     {
         const expected = testIp(.{ 192, 168, 1, 0 });
 
-        try std.testing.expectEqual(expected, subnet.network);
+        try expectEqualIp(expected, subnet.network);
         try std.testing.expectEqual(@as(u5, 28), subnet.prefix_len);
     }
 
     {
         const expected = testIp(.{ 192, 168, 1, 1 });
 
-        try std.testing.expectEqual(expected, subnet.firstIp());
+        try expectEqualIp(expected, subnet.firstIp());
     }
 
     {
         const expected = testIp(.{ 192, 168, 1, 14 });
 
-        try std.testing.expectEqual(expected, subnet.lastIp());
+        try expectEqualIp(expected, subnet.lastIp());
     }
 }
 
@@ -168,7 +181,7 @@ test "firstIpAddress returns IP after network address" {
     const subnet = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28);
     const expected = testIp(.{ 192, 168, 1, 1 });
 
-    try std.testing.expectEqual(expected, subnet.firstIp());
+    try expectEqualIp(expected, subnet.firstIp());
 }
 
 test "lastIpAddress returns 'ipCount' IPs after network address" {
@@ -176,7 +189,7 @@ test "lastIpAddress returns 'ipCount' IPs after network address" {
     const expected = testIp(.{ 192, 168, 1, 14 });
 
     try std.testing.expectEqual(14, subnet.ipCount());
-    try std.testing.expectEqual(expected, subnet.lastIp());
+    try expectEqualIp(expected, subnet.lastIp());
 }
 
 test "ipCount calculates based on prefix " {
@@ -208,7 +221,7 @@ test "netmask calculates based on prefix" {
         const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 28);
         const expected = testIp(.{ 255, 255, 255, 240 });
 
-        try std.testing.expectEqual(expected, subnet.netmask());
+        try expectEqualIp(expected, subnet.netmask());
     }
 
     // 29
@@ -216,7 +229,7 @@ test "netmask calculates based on prefix" {
         const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 29);
         const expected = testIp(.{ 255, 255, 255, 248 });
 
-        try std.testing.expectEqual(expected, subnet.netmask());
+        try expectEqualIp(expected, subnet.netmask());
     }
 
     // 25
@@ -224,6 +237,6 @@ test "netmask calculates based on prefix" {
         const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 25);
         const expected = testIp(.{ 255, 255, 255, 128 });
 
-        try std.testing.expectEqual(expected, subnet.netmask());
+        try expectEqualIp(expected, subnet.netmask());
     }
 }
