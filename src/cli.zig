@@ -40,7 +40,7 @@ test "Parse missing args" {
     const args = [_][]const u8{"cider"};
     const config = Config.fromArgs(allocator, &args);
 
-    try std.testing.expectError(error.InvalidArgCount, config);
+    try std.testing.expectError(error.MissingCIDR, config);
 }
 
 test "Parse valid CIDR" {
@@ -63,7 +63,7 @@ test "Parse multiple args" {
     const args = [_][]const u8{ "cider", "192.168.1.0", "/", "24" };
     const config = Config.fromArgs(allocator, &args);
 
-    try std.testing.expectError(error.InvalidArgCount, config);
+    try std.testing.expectError(error.InvalidArguments, config);
 }
 
 test "Parse with 'next' command" {
