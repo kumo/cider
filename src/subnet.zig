@@ -47,6 +47,13 @@ pub const Subnet = struct {
         return calculateTotalIps(self.prefix_len) - 2;
     }
 
+    pub fn next(self: Subnet) Subnet {
+        return Subnet.init(
+            self.network + calculateTotalIps(self.prefix_len) + 2,
+            self.prefix_len,
+        );
+    }
+
     pub fn format(this: @This(), writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
             \\Network: {f}
@@ -239,4 +246,13 @@ test "netmask calculates based on prefix" {
 
         try expectEqualIp(expected, subnet.netmask());
     }
+}
+
+test "next returns the next subnet with the same size" {
+    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 2 }), 28);
+    const next_subnet = subnet.next();
+    const expected = testIp(.{ 192, 168, 1, 16 });
+
+    try expectEqualIp(expected, next_subnet.network);
+    try expectEqualIp(subnet.prefix_len, next_subnet.prefix_len);
 }
