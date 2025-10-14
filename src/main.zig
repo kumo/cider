@@ -18,6 +18,11 @@ pub fn main() !void {
     var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
     const stdout = &stdout_writer.interface;
 
-    try stdout.print("{f}", .{subnet});
+    if (config.calculate_next) {
+        try stdout.print("{f}", .{subnet.next()});
+    } else {
+        try stdout.print("{f}", .{subnet});
+    }
+
     try stdout.flush();
 }
