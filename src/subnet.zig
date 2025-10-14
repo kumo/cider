@@ -23,10 +23,12 @@ pub const Subnet = struct {
         // Ensure there are no extra slashes
         if (iter.next() != null) return error.InvalidCidr;
 
-        const ip = std.net.Ip4Address.parse(ip_str, 0) catch return error.InvalidCidr;
+        const ip_addr = std.net.Ip4Address.parse(ip_str, 0) catch return error.InvalidCidr;
         const prefix_len = std.fmt.parseInt(u5, prefix_str, 10) catch return error.InvalidCidr;
 
-        return Subnet.init(ip.sa.addr, prefix_len);
+        const ip = std.mem.bigToNative(u32, ip_addr.sa.addr);
+
+        return Subnet.init(ip, prefix_len);
     }
 
     pub fn firstIpAddress(self: Subnet) std.net.Ip4Address {
@@ -85,6 +87,28 @@ test "init masks host bits to get network address" {
 
     try std.testing.expectEqual(expected, subnet.networkAddress());
     try std.testing.expectEqual(@as(u5, 28), subnet.prefix_len);
+}
+
+test "parse creates valid subnet" {
+    const subnet = try Subnet.parse("192.168.1.2/28");
+
+    {
+        const expected = std.net.Ip4Address.init(.{ 192, 168, 1, 0 }, 0);
+
+        try std.testing.expectEqual(expected, subnet.networkAddress());
+        try std.testing.expectEqual(@as(u5, 28), subnet.prefix_len);
+    }
+
+    {
+        const expected = std.net.Ip4Address.init(.{ 192, 168, 1, 1 }, 0);
+
+        try std.testing.expectEqual(expected, subnet.firstIpAddress());
+    }
+
+    {
+        const expected = std.net.Ip4Address.init(.{ 192, 168, 1, 14 }, 0);
+        try std.testing.expectEqual(expected, subnet.firstIpAddress());
+    }
 }
 
 test "parse returns errors for invalid CIDRs" {
