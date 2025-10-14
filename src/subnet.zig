@@ -47,6 +47,25 @@ pub const Subnet = struct {
         return calculateTotalIps(self.prefix_len) - 2;
     }
 
+    pub fn format(this: @This(), writer: *std.Io.Writer) std.Io.Writer.Error!void {
+        try writer.print(
+            \\Network: {f}
+            \\Netmask: {f}
+            \\First IP: {f}
+            \\Last IP: {f}
+            \\CIDR: /{d}
+            \\Num Hosts: {d}
+            \\
+        , .{
+            formatIp(this.network),
+            formatIp(this.netmask()),
+            formatIp(this.firstIp()),
+            formatIp(this.lastIp()),
+            this.prefix_len,
+            this.ipCount(),
+        });
+    }
+
     // --- Private helpers
 
     fn calculateNetmask(prefix_len: u5) u32 {
@@ -57,6 +76,23 @@ pub const Subnet = struct {
     fn calculateTotalIps(prefix_len: u5) u32 {
         const shift: u5 = @intCast(32 - @as(u6, prefix_len));
         return @as(u32, 1) << shift;
+    }
+};
+
+fn formatIp(addr: u32) IpFormatter {
+    return .{ .addr = addr };
+}
+
+const IpFormatter = struct {
+    addr: u32, // Native byte order
+
+    pub fn format(this: @This(), writer: *std.Io.Writer) std.Io.Writer.Error!void {
+        try writer.print("{d}.{d}.{d}.{d}", .{
+            (this.addr >> 24) & 0xFF,
+            (this.addr >> 16) & 0xFF,
+            (this.addr >> 8) & 0xFF,
+            this.addr & 0xFF,
+        });
     }
 };
 

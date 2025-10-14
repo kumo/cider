@@ -14,5 +14,10 @@ pub fn main() !void {
     const config = try Config.fromArgs(allocator, args);
     const subnet = try Subnet.parse(config.cidr);
 
-    std.debug.print("Network: {s}, Mask: {s}\n", .{ subnet.networkAddress(), subnet.netmask() });
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
+    try stdout.print("{f}", .{subnet});
+    try stdout.flush();
 }
