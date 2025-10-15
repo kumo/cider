@@ -56,11 +56,11 @@ pub const Subnet = struct {
 
     pub fn format(this: @This(), writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
-            \\Network: {f}
-            \\Netmask: {f}
-            \\First IP: {f}
-            \\Last IP: {f}
-            \\CIDR: /{d}
+            \\Network:   {f}
+            \\Netmask:   {f}
+            \\First IP:  {f}
+            \\Last IP:   {f}
+            \\CIDR:      /{d}
             \\Num Hosts: {d}
             \\
         , .{
