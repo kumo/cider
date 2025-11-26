@@ -70,21 +70,10 @@ pub const Subnet = struct {
         return Subnet.init(aligned, new_prefix_len);
     }
 
-    pub fn transform(self: Subnet, new_prefix_len: u5, allow_backwards: bool) !Subnet {
+    pub fn transform(self: Subnet, new_prefix_len: u5) Subnet {
         const new_mask = calculateNetmask(new_prefix_len);
         const transformed_network = self.network & new_mask;
         
-        // If the network address doesn't change, it's a direct transform
-        if (transformed_network == self.network) {
-            return Subnet.init(transformed_network, new_prefix_len);
-        }
-        
-        // If it would move and we don't allow backwards, error
-        if (!allow_backwards) {
-            return error.TransformationNotPossible;
-        }
-        
-        // Otherwise allow the move
         return Subnet.init(transformed_network, new_prefix_len);
     }
 
@@ -333,10 +322,10 @@ test "nextWithSize with smaller prefix should find next aligned subnet" {
     try std.testing.expectEqual(@as(u5, 29), next_subnet.prefix_len);
 }
 
-test "transform resizes subnet to larger prefix without moving backwards" {
+test "transform resizes subnet to larger prefix" {
     // /28 at 192.168.1.0 should transform to /27 at 192.168.1.0
     const subnet = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28);
-    const transformed = try subnet.transform(27, false);
+    const transformed = subnet.transform(27);
     const expected = testIp(.{ 192, 168, 1, 0 });
 
     try expectEqualIp(expected, transformed.network);
@@ -346,25 +335,17 @@ test "transform resizes subnet to larger prefix without moving backwards" {
 test "transform resizes subnet to smaller prefix" {
     // /28 at 192.168.1.0 should transform to /29 at 192.168.1.0
     const subnet = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28);
-    const transformed = try subnet.transform(29, false);
+    const transformed = subnet.transform(29);
     const expected = testIp(.{ 192, 168, 1, 0 });
 
     try expectEqualIp(expected, transformed.network);
     try std.testing.expectEqual(@as(u5, 29), transformed.prefix_len);
 }
 
-test "transform fails if moving backwards and allow_backwards is false" {
-    // /28 at 192.168.1.16 cannot fit in a /27 at 192.168.1.0 without moving
+test "transform aligns to boundary even if moving" {
+    // /28 at 192.168.1.16 transforms to /27 at 192.168.1.0
     const subnet = Subnet.init(testIp(.{ 192, 168, 1, 16 }), 28);
-    const result = subnet.transform(27, false);
-
-    try std.testing.expectError(error.TransformationNotPossible, result);
-}
-
-test "transform succeeds with allow_backwards true" {
-    // /28 at 192.168.1.16 can move to /27 at 192.168.1.0
-    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 16 }), 28);
-    const transformed = try subnet.transform(27, true);
+    const transformed = subnet.transform(27);
     const expected = testIp(.{ 192, 168, 1, 0 });
 
     try expectEqualIp(expected, transformed.network);

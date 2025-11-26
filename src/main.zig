@@ -14,10 +14,9 @@ pub fn main() !void {
 
     const config = Config.fromArgs(allocator, args) catch {
         std.debug.print("Usage:\n", .{});
-        std.debug.print("  cider <cidr>                                 Show CIDR info\n", .{});
-        std.debug.print("  cider next <cidr> [--prefix <len>]           Calculate next subnet\n", .{});
-        std.debug.print("  cider transform <cidr> --prefix <len> [--allow-backwards]\n", .{});
-        std.debug.print("                                               Resize to different prefix\n", .{});
+        std.debug.print("  cider <cidr>                            Show CIDR info\n", .{});
+        std.debug.print("  cider next <cidr> [--prefix <len>]      Calculate next subnet\n", .{});
+        std.debug.print("  cider transform <cidr> --prefix <len>   Resize to different prefix\n", .{});
         std.debug.print("\nExample:\n", .{});
         std.debug.print("  cider 192.168.1.0/24\n", .{});
         std.debug.print("  cider next 192.168.1.0/24\n", .{});
@@ -53,16 +52,26 @@ pub fn main() !void {
         },
         .transform => {
             const new_prefix_len = config.new_prefix_len orelse return;
-            const transformed = subnet.transform(new_prefix_len, config.allow_backwards) catch |err| {
-                std.debug.print("Error: {}\n", .{err});
-                return;
-            };
+            const transformed = subnet.transform(new_prefix_len);
 
-            try stdout.print("{f}", .{transformed});
+            // Check if new subnet starts before specified one
+            if (transformed.network < subnet.network) {
+                // Show overlapping information
+                try stdout.print("Transformed subnet that starts before the specified one:\n", .{});
+                try stdout.print("{f}\n", .{transformed});
 
-            // Detect and report gap
-            if (subnet.hasGap(transformed)) {
-                try stdout.print("\nGap detected between subnets\n", .{});
+                // Find and show next subnet that doesn't start before the specified one
+                const next_non_overlapping = try transformed.nextWithSize(new_prefix_len);
+                try stdout.print("Transformed subnet that starts after the specified one:\n", .{});
+                try stdout.print("{f}", .{next_non_overlapping});
+
+                // Detect and report gap
+                if (transformed.hasGap(next_non_overlapping)) {
+                    try stdout.print("\nGap detected between subnets\n", .{});
+                }
+            } else {
+                // No backward movement, show the transformed subnet
+                try stdout.print("{f}", .{transformed});
             }
         },
     }

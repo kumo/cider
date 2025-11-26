@@ -10,7 +10,6 @@ pub const Config = struct {
     cidr: []const u8,
     command: Command = .info,
     new_prefix_len: ?u5 = null,
-    allow_backwards: bool = false,
 
     pub fn fromArgs(allocator: std.mem.Allocator, args: []const []const u8) !Config {
         if (args.len < 2) {
@@ -39,7 +38,6 @@ pub const Config = struct {
 
         const cidr = args[2];
         var new_prefix_len: ?u5 = null;
-        var allow_backwards = false;
 
         // Parse optional flags
         var i: usize = 3;
@@ -58,8 +56,6 @@ pub const Config = struct {
                 }
 
                 new_prefix_len = std.fmt.parseInt(u5, prefix_str, 10) catch return error.InvalidArguments;
-            } else if (std.mem.eql(u8, arg, "--allow-backwards")) {
-                allow_backwards = true;
             } else {
                 return error.InvalidArguments;
             }
@@ -74,7 +70,6 @@ pub const Config = struct {
             .cidr = try allocator.dupe(u8, cidr),
             .command = command,
             .new_prefix_len = new_prefix_len,
-            .allow_backwards = allow_backwards,
         };
     }
 };
@@ -163,33 +158,4 @@ test "Parse transform command" {
     try std.testing.expectEqualStrings("192.168.1.0/24", config.cidr);
     try std.testing.expectEqual(.transform, config.command);
     try std.testing.expectEqual(@as(u5, 27), config.new_prefix_len.?);
-    try std.testing.expectEqual(false, config.allow_backwards);
-}
-
-test "Parse transform with --allow-backwards flag" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-
-    const args = [_][]const u8{ "cider", "transform", "192.168.1.0/24", "--prefix", "27", "--allow-backwards" };
-    const config = try Config.fromArgs(allocator, &args);
-
-    try std.testing.expectEqualStrings("192.168.1.0/24", config.cidr);
-    try std.testing.expectEqual(.transform, config.command);
-    try std.testing.expectEqual(@as(u5, 27), config.new_prefix_len.?);
-    try std.testing.expectEqual(true, config.allow_backwards);
-}
-
-test "Parse transform with --allow-backwards before --prefix" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-
-    const args = [_][]const u8{ "cider", "transform", "192.168.1.0/24", "--allow-backwards", "--prefix", "27" };
-    const config = try Config.fromArgs(allocator, &args);
-
-    try std.testing.expectEqualStrings("192.168.1.0/24", config.cidr);
-    try std.testing.expectEqual(.transform, config.command);
-    try std.testing.expectEqual(@as(u5, 27), config.new_prefix_len.?);
-    try std.testing.expectEqual(true, config.allow_backwards);
 }
