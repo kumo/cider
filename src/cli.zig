@@ -46,7 +46,7 @@ pub const Config = struct {
         while (i < args.len) : (i += 1) {
             const arg = args[i];
 
-            if (std.mem.eql(u8, arg, "--subnet")) {
+            if (std.mem.eql(u8, arg, "--prefix")) {
                 if (i + 1 >= args.len) {
                     return error.InvalidArguments;
                 }
@@ -126,12 +126,12 @@ test "Parse with 'next' command without --subnet uses same prefix" {
     try std.testing.expectEqual(@as(?u5, null), config.new_prefix_len);
 }
 
-test "Parse next with --subnet flag (numeric)" {
+test "Parse next with --prefix flag (numeric)" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const args = [_][]const u8{ "cider", "next", "192.168.1.0/24", "--subnet", "27" };
+    const args = [_][]const u8{ "cider", "next", "192.168.1.0/24", "--prefix", "27" };
     const config = try Config.fromArgs(allocator, &args);
 
     try std.testing.expectEqualStrings("192.168.1.0/24", config.cidr);
@@ -139,12 +139,12 @@ test "Parse next with --subnet flag (numeric)" {
     try std.testing.expectEqual(@as(u5, 27), config.new_prefix_len.?);
 }
 
-test "Parse next with --subnet flag (with slash)" {
+test "Parse next with --prefix flag (with slash)" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const args = [_][]const u8{ "cider", "next", "192.168.1.0/24", "--subnet", "/27" };
+    const args = [_][]const u8{ "cider", "next", "192.168.1.0/24", "--prefix", "/27" };
     const config = try Config.fromArgs(allocator, &args);
 
     try std.testing.expectEqualStrings("192.168.1.0/24", config.cidr);
@@ -157,7 +157,7 @@ test "Parse transform command" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const args = [_][]const u8{ "cider", "transform", "192.168.1.0/24", "--subnet", "27" };
+    const args = [_][]const u8{ "cider", "transform", "192.168.1.0/24", "--prefix", "27" };
     const config = try Config.fromArgs(allocator, &args);
 
     try std.testing.expectEqualStrings("192.168.1.0/24", config.cidr);
@@ -171,7 +171,7 @@ test "Parse transform with --allow-backwards flag" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const args = [_][]const u8{ "cider", "transform", "192.168.1.0/24", "--subnet", "27", "--allow-backwards" };
+    const args = [_][]const u8{ "cider", "transform", "192.168.1.0/24", "--prefix", "27", "--allow-backwards" };
     const config = try Config.fromArgs(allocator, &args);
 
     try std.testing.expectEqualStrings("192.168.1.0/24", config.cidr);
@@ -180,12 +180,12 @@ test "Parse transform with --allow-backwards flag" {
     try std.testing.expectEqual(true, config.allow_backwards);
 }
 
-test "Parse transform with --allow-backwards before --subnet" {
+test "Parse transform with --allow-backwards before --prefix" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const args = [_][]const u8{ "cider", "transform", "192.168.1.0/24", "--allow-backwards", "--subnet", "27" };
+    const args = [_][]const u8{ "cider", "transform", "192.168.1.0/24", "--allow-backwards", "--prefix", "27" };
     const config = try Config.fromArgs(allocator, &args);
 
     try std.testing.expectEqualStrings("192.168.1.0/24", config.cidr);

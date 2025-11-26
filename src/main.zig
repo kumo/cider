@@ -14,15 +14,15 @@ pub fn main() !void {
 
     const config = Config.fromArgs(allocator, args) catch {
         std.debug.print("Usage:\n", .{});
-        std.debug.print("  cider <cidr>                                  Show CIDR info\n", .{});
-        std.debug.print("  cider next <cidr> [--subnet <prefix>]        Calculate next subnet\n", .{});
-        std.debug.print("  cider transform <cidr> --subnet <prefix> [--allow-backwards]\n", .{});
-        std.debug.print("                                                Resize to different prefix\n", .{});
+        std.debug.print("  cider <cidr>                                 Show CIDR info\n", .{});
+        std.debug.print("  cider next <cidr> [--prefix <len>]           Calculate next subnet\n", .{});
+        std.debug.print("  cider transform <cidr> --prefix <len> [--allow-backwards]\n", .{});
+        std.debug.print("                                               Resize to different prefix\n", .{});
         std.debug.print("\nExample:\n", .{});
         std.debug.print("  cider 192.168.1.0/24\n", .{});
         std.debug.print("  cider next 192.168.1.0/24\n", .{});
-        std.debug.print("  cider next 192.168.1.0/24 --subnet 27\n", .{});
-        std.debug.print("  cider transform 192.168.1.0/24 --subnet 27\n", .{});
+        std.debug.print("  cider next 192.168.1.0/24 --prefix 27\n", .{});
+        std.debug.print("  cider transform 192.168.1.0/24 --prefix 27\n", .{});
         return;
     };
     const subnet = Subnet.parse(config.cidr) catch {
