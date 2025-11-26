@@ -54,6 +54,52 @@ pub const Subnet = struct {
         );
     }
 
+    pub fn nextWithSize(self: Subnet, new_prefix_len: u5) !Subnet {
+        const new_size = calculateTotalIps(new_prefix_len);
+        const new_mask = calculateNetmask(new_prefix_len);
+        
+        // Find the first address after this subnet
+        const first_after = self.network + calculateTotalIps(self.prefix_len);
+        
+        // Align it to the new prefix length
+        const aligned = (first_after + new_size - 1) & new_mask;
+        
+        // Check for overflow
+        if (aligned < first_after) return error.NoNextSubnet;
+        
+        return Subnet.init(aligned, new_prefix_len);
+    }
+
+    pub fn transform(self: Subnet, new_prefix_len: u5, allow_backwards: bool) !Subnet {
+        const new_mask = calculateNetmask(new_prefix_len);
+        const transformed_network = self.network & new_mask;
+        
+        // If the network address doesn't change, it's a direct transform
+        if (transformed_network == self.network) {
+            return Subnet.init(transformed_network, new_prefix_len);
+        }
+        
+        // If it would move and we don't allow backwards, error
+        if (!allow_backwards) {
+            return error.TransformationNotPossible;
+        }
+        
+        // Otherwise allow the move
+        return Subnet.init(transformed_network, new_prefix_len);
+    }
+
+    pub fn hasGap(self: Subnet, other: Subnet) bool {
+        // Determine which subnet comes first
+        const first = if (self.network <= other.network) self else other;
+        const second = if (self.network <= other.network) other else self;
+        
+        // Get the last IP of the first subnet (inclusive)
+        const first_last = first.network + calculateTotalIps(first.prefix_len) - 1;
+        
+        // Check if there's a gap: second should start after first ends
+        return second.network > first_last + 1;
+    }
+
     pub fn format(this: @This(), writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print(
             \\Network:   {f}
@@ -255,4 +301,100 @@ test "next returns the next subnet with the same size" {
 
     try expectEqualIp(expected, next_subnet.network);
     try expectEqualIp(subnet.prefix_len, next_subnet.prefix_len);
+}
+
+test "nextWithSize returns next subnet of different size" {
+    // /28 at 10.59.1.80 → next /27 should be at 10.59.1.96
+    const subnet = Subnet.init(testIp(.{ 10, 59, 1, 80 }), 28);
+    const next_subnet = try subnet.nextWithSize(27);
+    const expected = testIp(.{ 10, 59, 1, 96 });
+
+    try expectEqualIp(expected, next_subnet.network);
+    try std.testing.expectEqual(@as(u5, 27), next_subnet.prefix_len);
+}
+
+test "nextWithSize with larger prefix should skip past current subnet" {
+    // /28 at 192.168.1.0 (ends at .15) → next /25 should be at 192.168.1.128
+    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28);
+    const next_subnet = try subnet.nextWithSize(25);
+    const expected = testIp(.{ 192, 168, 1, 128 });
+
+    try expectEqualIp(expected, next_subnet.network);
+    try std.testing.expectEqual(@as(u5, 25), next_subnet.prefix_len);
+}
+
+test "nextWithSize with smaller prefix should find next aligned subnet" {
+    // /28 at 192.168.1.0 (ends at .15) → next /29 should be at 192.168.1.16
+    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28);
+    const next_subnet = try subnet.nextWithSize(29);
+    const expected = testIp(.{ 192, 168, 1, 16 });
+
+    try expectEqualIp(expected, next_subnet.network);
+    try std.testing.expectEqual(@as(u5, 29), next_subnet.prefix_len);
+}
+
+test "transform resizes subnet to larger prefix without moving backwards" {
+    // /28 at 192.168.1.0 should transform to /27 at 192.168.1.0
+    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28);
+    const transformed = try subnet.transform(27, false);
+    const expected = testIp(.{ 192, 168, 1, 0 });
+
+    try expectEqualIp(expected, transformed.network);
+    try std.testing.expectEqual(@as(u5, 27), transformed.prefix_len);
+}
+
+test "transform resizes subnet to smaller prefix" {
+    // /28 at 192.168.1.0 should transform to /29 at 192.168.1.0
+    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28);
+    const transformed = try subnet.transform(29, false);
+    const expected = testIp(.{ 192, 168, 1, 0 });
+
+    try expectEqualIp(expected, transformed.network);
+    try std.testing.expectEqual(@as(u5, 29), transformed.prefix_len);
+}
+
+test "transform fails if moving backwards and allow_backwards is false" {
+    // /28 at 192.168.1.16 cannot fit in a /27 at 192.168.1.0 without moving
+    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 16 }), 28);
+    const result = subnet.transform(27, false);
+
+    try std.testing.expectError(error.TransformationNotPossible, result);
+}
+
+test "transform succeeds with allow_backwards true" {
+    // /28 at 192.168.1.16 can move to /27 at 192.168.1.0
+    const subnet = Subnet.init(testIp(.{ 192, 168, 1, 16 }), 28);
+    const transformed = try subnet.transform(27, true);
+    const expected = testIp(.{ 192, 168, 1, 0 });
+
+    try expectEqualIp(expected, transformed.network);
+    try std.testing.expectEqual(@as(u5, 27), transformed.prefix_len);
+}
+
+test "hasGap detects gap between non-adjacent subnets" {
+    const subnet1 = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28); // ends at .15
+    const subnet2 = Subnet.init(testIp(.{ 192, 168, 1, 32 }), 28); // starts at .32
+    
+    try std.testing.expect(subnet1.hasGap(subnet2));
+}
+
+test "hasGap returns false for adjacent subnets" {
+    const subnet1 = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28); // ends at .15
+    const subnet2 = Subnet.init(testIp(.{ 192, 168, 1, 16 }), 28); // starts at .16
+    
+    try std.testing.expect(!subnet1.hasGap(subnet2));
+}
+
+test "hasGap returns false for overlapping subnets" {
+    const subnet1 = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28); // 0-15
+    const subnet2 = Subnet.init(testIp(.{ 192, 168, 1, 8 }), 28); // 8-23 (overlaps)
+    
+    try std.testing.expect(!subnet1.hasGap(subnet2));
+}
+
+test "hasGap works in reverse direction" {
+    const subnet1 = Subnet.init(testIp(.{ 192, 168, 1, 32 }), 28);
+    const subnet2 = Subnet.init(testIp(.{ 192, 168, 1, 0 }), 28);
+    
+    try std.testing.expect(subnet1.hasGap(subnet2));
 }
