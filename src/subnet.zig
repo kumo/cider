@@ -1,10 +1,10 @@
 const std = @import("std");
 
 pub const Subnet = struct {
-    network: u32,
+    network: u64,
     prefix_len: u5,
 
-    pub fn init(ip: u32, prefix_len: u5) Subnet {
+    pub fn init(ip: u64, prefix_len: u5) Subnet {
         // Get the network address from the IP and netmask
         const network = ip & calculateNetmask(prefix_len);
 
@@ -32,24 +32,24 @@ pub const Subnet = struct {
     }
 
     pub fn firstIp(self: Subnet) u32 {
-        return self.network + 1;
+        return @intCast(self.network + 1);
     }
 
     pub fn lastIp(self: Subnet) u32 {
-        return self.network + self.ipCount();
+        return @intCast(self.network + self.ipCount());
     }
 
     pub fn netmask(self: Subnet) u32 {
         return calculateNetmask(self.prefix_len);
     }
 
-    pub fn ipCount(self: Subnet) u32 {
+    pub fn ipCount(self: Subnet) u64 {
         return calculateTotalIps(self.prefix_len) - 2;
     }
 
     pub fn next(self: Subnet) Subnet {
         return Subnet.init(
-            self.network + calculateTotalIps(self.prefix_len) + 2,
+            self.network + calculateTotalIps(self.prefix_len),
             self.prefix_len,
         );
     }
@@ -99,7 +99,7 @@ pub const Subnet = struct {
             \\Num Hosts: {d}
             \\
         , .{
-            formatIp(this.network),
+            formatIp(@intCast(this.network)),
             formatIp(this.netmask()),
             formatIp(this.firstIp()),
             formatIp(this.lastIp()),
@@ -111,13 +111,13 @@ pub const Subnet = struct {
     // --- Private helpers
 
     fn calculateNetmask(prefix_len: u5) u32 {
+        if (prefix_len == 0) return 0;
         const shift: u5 = @intCast(32 - @as(u6, prefix_len));
         return ~@as(u32, 0) << shift;
     }
 
-    fn calculateTotalIps(prefix_len: u5) u32 {
-        const shift: u5 = @intCast(32 - @as(u6, prefix_len));
-        return @as(u32, 1) << shift;
+    fn calculateTotalIps(prefix_len: u5) u64 {
+        return @as(u64, 1) << (32 - @as(u6, prefix_len));
     }
 };
 
@@ -146,14 +146,14 @@ fn testIp(octets: [4]u8) u32 {
         @as(u32, octets[3]);
 }
 
-fn expectEqualIp(expected: u32, actual: u32) !void {
+fn expectEqualIp(expected: u64, actual: u64) !void {
     if (expected == actual) return;
 
     std.debug.print("\n" ++
         "Expected IP: {f}\n" ++
         "Actual IP:   {f}\n", .{
-        formatIp(expected),
-        formatIp(actual),
+        formatIp(@intCast(expected)),
+        formatIp(@intCast(actual)),
     });
 
     return error.TestExpectedEqual;
@@ -188,6 +188,17 @@ test "parse creates valid subnet" {
 
         try expectEqualIp(expected, subnet.lastIp());
     }
+}
+
+test "parse handles /0 prefix" {
+    const subnet = try Subnet.parse("0.0.0.0/0");
+
+    try expectEqualIp(0, subnet.network);
+    try std.testing.expectEqual(@as(u5, 0), subnet.prefix_len);
+    try expectEqualIp(0, subnet.netmask());
+    try expectEqualIp(1, subnet.firstIp());
+    try expectEqualIp(testIp(.{ 255, 255, 255, 254 }), subnet.lastIp());
+    try std.testing.expectEqual(@as(u64, 4294967294), subnet.ipCount());
 }
 
 test "parse returns errors for invalid CIDRs" {
