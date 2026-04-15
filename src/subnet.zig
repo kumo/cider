@@ -23,10 +23,10 @@ pub const Subnet = struct {
         // Ensure there are no extra slashes
         if (iter.next() != null) return error.InvalidCidr;
 
-        const ip_addr = std.net.Ip4Address.parse(ip_str, 0) catch return error.InvalidCidr;
+        const ip_addr = std.Io.net.Ip4Address.parse(ip_str, 0) catch return error.InvalidCidr;
         const prefix_len = std.fmt.parseInt(u5, prefix_str, 10) catch return error.InvalidCidr;
 
-        const ip = std.mem.bigToNative(u32, ip_addr.sa.addr);
+        const ip = std.mem.readInt(u32, &ip_addr.bytes, .big);
 
         return Subnet.init(ip, prefix_len);
     }

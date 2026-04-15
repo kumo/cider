@@ -2,15 +2,10 @@ const std = @import("std");
 const Config = @import("cli.zig").Config;
 const Subnet = @import("subnet.zig").Subnet;
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.arena.allocator();
 
-    var arena = std.heap.ArenaAllocator.init(gpa.allocator());
-    defer arena.deinit();
-    const allocator = arena.allocator();
-
-    const args = try std.process.argsAlloc(allocator);
+    const args = try init.minimal.args.toSlice(allocator);
 
     const config = Config.fromArgs(allocator, args) catch {
         std.debug.print("Usage:\n", .{});
@@ -30,7 +25,7 @@ pub fn main() !void {
     };
 
     var stdout_buffer: [4096]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    var stdout_writer = std.Io.File.stdout().writer(init.io, &stdout_buffer);
     const stdout = &stdout_writer.interface;
 
     switch (config.command) {
